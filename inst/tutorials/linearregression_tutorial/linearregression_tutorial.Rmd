@@ -1,0 +1,705 @@
+---
+title: "Linear Regression"
+output:
+  learnr::tutorial:
+    progressive: false
+    allow_skip: true
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(tidyverse)
+library(nycflights13)
+library(Lahman)
+
+tutorial_options(
+  exercise.timelimit = 60,
+  # A simple checker function that just returns the message in the check chunk
+  exercise.checker = function(check_code, ...) {
+    list(
+      message = eval(parse(text = check_code)),
+      correct = logical(0),
+      type = "info",
+      location = "append"
+    )
+  }
+)
+knitr::opts_chunk$set(error = TRUE)
+```
+
+## Welcome
+
+### 
+
+When we learned about correlation coefficients, we learned that they cannot tell us the amount of change in our dependent variable that is associated with different levels of our independent variable. If we want that information, we need to estimate a linear regression model, which is what we'll be working on in this tutorial. 
+
+Click the button below to get started!
+
+
+
+## Topic 1: Points on the Coordinate Plane
+
+### 
+
+In order to understand bivariate regression, it will be helpful to review plotting points on a coordinate plane and the equation of a line.
+
+The **coordinate plane** (or Cartesian plane) is a two-dimensional space defined by two lines, or **axes**, that are perpendicular to each other. This means that they cross each other at a 90-degree angle. The **x-axis** is the horizontal line that occurs at Y = 0, and the **y-axis** is the vertical line that occurs at X = 0. 
+
+<br> 
+
+```{r, echo = FALSE, fig.align = "center"}
+
+ggplot() +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +  
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Coordinate Plane") +
+  scale_x_continuous(limits = c(-10,10)) +
+  scale_y_continuous(limits = c(-20, 20)) +
+  
+  annotate("text", label = "X-Axis", x = 7.5, y = 5, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 7.5, y = 3.75, xend = 7.5, yend = .5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  
+  annotate("text", label = "Y-Axis", x = 2.5, y = 15, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 1.35, y = 15, xend = .25, yend = 15), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") 
+
+
+```
+
+
+
+A specific point on the coordinate plane is defined by an **ordered pair**, which uses the notation (X, Y). In this notation, X is the point's X coordinate (where it falls horizontally on the coordinate plane), and Y is its Y coordinate (where it falls vertically on the coordinate plane). 
+
+Consider the point (3, 11). If we want to graph this point, we go to 3 on the x-axis and 11 on the y-axis and place our point at the spot where they cross:
+
+<br>
+
+```{r, echo = FALSE, warning = FALSE, fig.align = "center"}
+X <- c(3, 4, 5)
+Y <- c(11, 13, 15)
+
+dat1 <- as.data.frame(cbind(X, Y))
+
+ggplot(data = dat1, aes(x = X[1], y = Y[1])) +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) + 
+  geom_hline(yintercept = 11, linetype = 3, color = "steelblue2", linewidth = .75) +
+  geom_vline(xintercept = 3, linetype = 3, color = "steelblue2", linewidth = .75) +
+  geom_point(size = 3, color = "steelblue2") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Plotting (3, 11)") +
+  scale_x_continuous(limits = c(-10,10)) +
+  scale_y_continuous(limits = c(-20, 20)) +
+  
+  annotate("text", label = "(3, 11)", x = 3.75, y = 12.5, color = "steelblue2", size = 4) +
+  
+  annotate("text", label = "Y = 11", x = 7.5, y = 17, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 7.5, y = 16, xend = 7.5, yend = 11.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  
+  annotate("text", label = "X = 3", x = 1, y = 5, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 1.75, y = 5, xend = 2.75, yend = 5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") 
+
+
+```
+
+
+
+
+## Topic 2: Equation of a Line
+
+###
+### Slope-Intercept Form
+
+What if instead of plotting a single point, we want to plot a straight line? Here’s how that equation of that line is frequently written: 
+
+$$ y = mx + b $$
+
+This is known as the **slope-intercept form**, where
+
+* y = the y-values of the points on the line (where the points are placed vertically)
+
+* m = the **slope**, or how steep the line is (calculated by dividing the rise, or how far the line travels vertically, by the run, or how far the line travels to the right)
+
+* x = the x-values of the points on the line (where the points are placed horizontally)
+
+* b = the **y-intercept**, where the line crosses the y-axis.
+
+
+
+### Example 
+
+For example, say that we have a line defined by this equation: 
+
+$$ y = 2x + 5 $$
+
+This line crosses the y-axis at 5 and has a slope of 2 (which means that for every unit we move to the right, we move two units upward). It looks like this when plotted:
+
+<br>
+
+```{r, echo = FALSE, warning = FALSE, fig.align = "center"}
+
+ggplot(data = dat1, aes(x = X, y = Y)) +
+  geom_abline(slope = 2, intercept = 5, color = "steelblue2", size = .75) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Plotting y = 2x + 5") +
+  scale_x_continuous(limits = c(0,20)) +
+  scale_y_continuous(limits = c(0, 20)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "grey80") +
+  geom_vline(xintercept = 0, linetype = 2, color = "grey80") +
+  
+  # Intercept
+  annotate("text", label = "Intercept", x = 2, y = 3, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 1.2, y = 3.25, xend = 0.35, yend = 4.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_point(aes(x = 0, y = 5.15), shape = "\u2605", color="steelblue2", size = 8) +
+  
+  # Slope
+  annotate("text", label = "Slope (= Rise/Run)", x = 7, y = 10, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 6.5, y = 10.5, xend = 5.25, yend = 12.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  
+  # Rise
+  annotate("text", label = "Rise", x = 5.5, y = 14.25, size = 3, color = "orchid3") +
+  geom_segment(aes(x = 5, y = 13, xend = 5, yend = 15), color = "orchid3", linetype = 2, size = .5) +
+
+  # Run
+  annotate("text", label = "Run", x = 4.5, y = 12, size = 3, color = "forestgreen") +
+  geom_segment(aes(x = 4, y = 13, xend = 5, yend = 13), color = "forestgreen", linetype = 2, size = .5) 
+
+
+```
+
+
+With this equation, we can use values of X to calculate the matching values of Y for points appearing on the line (and vice versa). This means that if we're interested in the Y value that corresponds with an X value of 3, we would plug 3 in for X in our equation:
+
+$$
+\begin{aligned}
+y &= 2(3) + 5 \\
+ & = 6 + 5 \\
+ & = 11 
+\end{aligned}
+$$
+
+If we're interested in the Y value that corresponds with an X value of 4:
+
+$$
+\begin{aligned}
+y &= 2(4) + 5 \\
+ &= 8 + 5 \\
+ &= 13
+\end{aligned}
+$$
+
+
+And for an X value of 5:
+
+$$
+\begin{aligned}
+y &= 2(5) + 5 \\
+ &= 10 + 5 \\
+ &= 15 
+\end{aligned}
+$$
+
+We can check this visually, too!
+
+<br>
+
+
+```{r, echo = FALSE, warning = FALSE, fig.align = "center"}
+
+ggplot(data = dat1, aes(x = X, y = Y)) +
+  geom_abline(slope = 2, intercept = 5, color = "black", size = .75) + 
+  geom_point(x = 3, y = 11, color = "steelblue2", size = 3) +
+  geom_point(x = 4, y = 13, color = "orchid3", size = 3) +
+  geom_point(x = 5, y = 15, color = "forestgreen", size = 3) +
+  
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Points on the Line y = 2x + 5") +
+  scale_x_continuous(limits = c(0,20)) +
+  scale_y_continuous(limits = c(0, 20)) +
+  
+  geom_hline(yintercept = 0, linetype = 2, color = "grey80") +
+  geom_vline(xintercept = 0, linetype = 2, color = "grey80") +
+  
+  # Points
+  annotate("text", label = "(3, 11)", x = 4, y = 10, color = "steelblue2", size = 4) +
+  annotate("text", label = "(4, 13)", x = 5, y = 12, color = "orchid3", size = 4) +
+  annotate("text", label = "(5, 15)", x = 6, y = 14, color = "forestgreen", size = 4)
+
+```
+
+
+We'll be building on all of this information to estimate and interpret linear regression models. 
+
+
+## Topic 3: Overview of Bivariate Regression 1
+
+### 
+
+### General Intuition of Bivariate Regression
+
+We already know that **bivariate** refers to models or tests with two variables. A bivariate linear regression, then, is a linear regression model with two variables: one dependent variable and one independent variable. These variables are typically continuous.
+
+The general intuition behind bivariate regression is that it takes the following steps:
+
+* Create a scatterplot of your two variables, where the dependent variable is on the y-axis and the independent variable is on the x-axis.
+
+* Find the line that best fits the data, or the line that comes as close as possible to all of the data points simultaneously.
+
+* Find the slope and intercept of that line. 
+
+
+### The Population Bivariate Regression Model 
+
+Remember the difference between a population and a sample? A **population** is the entire group that we're interested in, and a **sample** is a subset (or smaller portion) of that group. 
+
+We'll start by pretending that we have data for the entire population. In the case of perfect or complete information, we can also perfectly explain or predict the relationship between our two variables of interest.
+
+With population data, the formula for a linear regression model looks very similar to the slope-intercept equation of a line we discussed earlier. It just uses slightly different notation:
+
+$$ Y_i = \alpha + \beta X_i + \epsilon_i $$
+
+With this notation,
+
+* $Y_i$ = The values of our dependent variable
+
+* $\alpha$ = The true population intercept
+
+* $\beta$ = The true population slope
+
+* $X_i$ = The values of our independent variable
+
+* $\epsilon_i$ = Random error
+
+Anything with a subscript of $i$ in the notation above ($Y$, $X$, and $\epsilon$) refers to a specific observation, or row in our data set. If a parameter doesn't have a subscript ($\alpha$, $\beta$), it means there is only one for the entire model--so there is a single intercept value and a single slope value.
+
+The big change from the equation of a line we looked at before and this equation is the addition of $\epsilon$ (epsilon) on the end. $\epsilon$ in this model accounts for variation in our dependent variable that isn't captured by the model. 
+
+Even in a situation with perfect information, there will still be times that our data points do not fall directly on our regression line--because social actors like individuals, organizations, and governments all have unique characteristics and behaviors! That's what this part of the model represents.
+
+
+### The Sample Bivariate Regression Model
+
+However, in social scientific research, we are nearly always working with sample, not population, data. In this case, the model looks slightly different:
+
+$$ \hat{Y}_i = \hat{\alpha} + \hat{\beta} X_i + \hat{\epsilon}_i $$
+
+Do you see the main difference between this model and the population model? It's the caret symbols (called "hats") above our $Y$, $\alpha$, $\beta$, and $\epsilon$. 
+
+In this notation,
+
+* $\hat{Y}_i$ = Read as "Y-hat", these are the values of Y that are **predicted** by our model
+
+* $\hat{\alpha}$ = This is our **estimate** of the population intercept
+
+* $\hat{\beta}$ = This is our **estimate** of the population slope
+
+* $X_i$ = These are the **observed** values of our independent variable 
+
+* $\hat{\epsilon}$ = This is the **calculated** error term (or our residuals)
+
+This is the model that we'll be focusing on this semester.
+
+
+### Residuals 
+
+Since they're the big difference between the equation of a line that we discussed at the beginning of this tutorial and our regression model, it's worth discussing residuals in more detail. 
+
+A **residual** is the vertical distance between an observed data point (an observation in our data set) and the value of the dependent variable predicted by our regression line for that observation.  
+
+They are calculated by subtracting each predicted value of Y ($\hat{Y}_i$) from the associated observed value of Y ($Y_i$):
+
+$$ \hat{\epsilon} = Y_i - \hat{Y}_i $$
+
+This means that points falling directly on our line with have a residual of zero, points above our regression line will have positive residuals, and points below our regression line will have negative residuals. The average of our residuals will always be zero if we've correctly estimated a line of best fit.
+
+
+### Visualizing a Regression Model 
+
+We can visualize a regression line like this, where the independent variable is on the X-axis, and the dependent variable is on the Y-axis:
+
+<br>
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+x <- c(0, 30, 50, 80, 95, 105, 120, 150, 180, 190, 205, 210, 215, 230, 250, 300, 310, 350)
+
+y <- c(5, 8, 11, 15, 20, 15, 22, 15, 24, 12, 16, 17, 20, 23, 19, 13, 18, 32)
+
+
+dat <- as.data.frame(cbind(x, y))
+
+fit <- lm(y ~ x, data = dat)
+dat$predicted <- predict(fit)
+dat$residuals <- residuals(fit)
+
+
+ggplot(data = dat, aes(x = x, y = y)) +
+  geom_point(size = 2) +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X (Independent Variable)",
+       y = "Y (Dependent Variable)",
+       title = "Visualizing a Regression Line") +
+  
+  # Axes 
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  
+  # Residuals 
+  annotate("text", label = "Residual", x = 250, y = 15, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 275, y = 15, xend = 295, yend = 15), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_segment(aes(xend = x, yend = predicted), alpha = 0.5, linetype = 2) +
+  
+  # Regression Line
+  annotate("text", label = "Regression Line", x = 270, y = 28, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 280, y = 27, xend = 320, yend = 24), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_smooth(method = "lm", se = FALSE, size = 0.75, color = "black") +
+
+  # Regression Intercept
+  annotate("text", label = "Intercept", x = 40, y = 18, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 36, y = 17, xend = 6, yend = 11), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_point(aes(x = 0, y = fit$coefficients[1] + .25), shape = "\u2605", color="steelblue2", size = 8) +
+  
+  # Slope
+  annotate("text", label = "Slope", x = 140, y = 7, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 140, y = 7.5, xend = 130, yend = 11.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_segment(aes(x = 60, y = 12, xend = 130, yend = 12), color = "steelblue2", linetype = 2, size = .5) +
+  geom_segment(aes(x = 130, y = 12, xend = 130, yend = 15), color = "steelblue2", linetype = 2, size = .5) 
+
+```
+
+
+Each of the points represents the values of X and Y for a single observation (or row in our dataset). The solid black line (labeled "Regression Line") is the straight line that comes as close as possible to each of our data points simultaneously, or the line that best fits our data. Our line crosses the Y-axis at  $\hat{\alpha}$ (marked with a star and labeled "Intercept").$\hat{\beta}$ is the slope of the line, or our estimate of the relationship between X and Y. The dashed lines between the points and our regression line represent the residuals.
+
+
+### Putting It All Together 
+
+
+## Topic 4: Ordinary Least Squares (OLS)
+
+
+## Topic 5: Performing a Bivariate Regression in R
+
+To run a linear regression model in R, we need to do the following:
+
+* Create an object by naming it and using the assignment arrow (`<-`). 
+
+* Use the `lm()` command to specify that we're running a **l**inear **m**odel.
+
+* Identify our variables, using the format `DV ~ IV`, where DV is our dependent variable and IV is our independent variable. 
+
+* Identify our data frame. 
+
+In the example code below, we have created a model object called `mod1`, which is a linear model (`lm()`) that has the dependent variable `sales` and the independent variable `youtube`, both of which are drawn from the data frame called `mdat`.
+
+The `summary()` command shows us our model results when we put our model object's name in the parentheses.
+
+
+
+```{r, echo = TRUE}
+
+library(datarium)
+mdat <- marketing 
+
+mod1 <- lm(sales ~ youtube, data = mdat)
+summary(mod1)
+
+```
+
+
+
+
+## Topic 6: Interpreting Regression Output
+
+
+
+
+
+## Boolean operators
+
+### &, |, and !
+
+R uses boolean operators to combine multiple logical comparisons into a single logical test. These include `&` (_and_), `|` (_or_), `!` (_not_ or _negation_), and `xor()` (_exactly or_).
+
+Both `|` and `xor()` will return TRUE if one or the other logical comparison returns TRUE. `xor()` differs from `|` in that it will return FALSE if both logical comparisons return TRUE. The name _xor_ stands for _exactly or_.
+
+Study the diagram below to get a feel for how these operators work.
+
+```{r fig1, echo = FALSE, out.width = "100%", fig.cap = "In the figure above, `x` is the left-hand circle, `y` is the right-hand circle, and the shaded region show which parts each command selects."}
+knitr::include_graphics("images/transform-logical.png")
+```
+
+### Test Your Knowledge
+
+```{r logicals, echo = FALSE}
+question(" What will the following code return? `filter(flights, month == 11 | month == 12)`",
+         answer("Every flight that departed in November _or_ December", correct = TRUE),
+         answer("Every flight that departed in November _and_ December", message = "Technically a flight could not have departed in November _and_ December unless it departed twice."),
+         answer("Every flight _except for_ those that departed in November or December"),
+         answer("An error. This is an incorrect way to combine tests.", message = "The next section will say a little more about combining tests."),
+         allow_retry = TRUE
+)
+```
+
+### Common mistakes
+
+In R, the order of operations doesn't work like English. You can't write `filter(flights, month == 11 | 12)`, even though you might say  "finds all flights that departed in November or December". Be sure to write out a _complete_ test on each side of a boolean operator.
+
+Here are four more tips to help you use logical tests and Boolean operators in R:
+
+###
+
+1. A useful short-hand for this problem is `x %in% y`. This will select every row where `x` is one of the values in `y`. We could use it to rewrite the code in the question above:
+
+    ```{r, eval = FALSE}
+    nov_dec <- filter(flights, month %in% c(11, 12))
+    ```
+
+###
+
+2. Sometimes you can simplify complicated subsetting by remembering De Morgan's law: `!(x & y)` is the same as `!x | !y`, and `!(x | y)` is the same as `!x & !y`. For example, if you wanted to find flights that weren't delayed (on arrival or departure) by more than two hours, you could use either of the following two filters:
+
+    ```{r, eval = FALSE}
+    filter(flights, !(arr_delay > 120 | dep_delay > 120))
+    filter(flights, arr_delay <= 120, dep_delay <= 120)
+    ```
+
+###
+
+3. As well as `&` and `|`, R also has `&&` and `||`. Don't use them with `filter()`! You'll learn when you should use them later.
+
+###
+
+4. Whenever you start using complicated, multipart expressions in `filter()`, consider making them explicit variables instead. That makes it much easier to check your work. You'll learn how to create new variables shortly.
+
+## Missing values
+
+### NA
+
+Missing values can make comparisons tricky in R. R uses `NA` to represent missing or unknown values. `NA`s are "contagious" because almost any operation involving an unknown value (`NA`) will also be unknown (`NA`). For example, can you determine what value these expressions that use missing values should evaluate to? Make a prediction and then click "Submit Answer".
+
+```{r nas, exercise = TRUE}
+NA > 5
+10 == NA
+NA + 10
+NA / 2
+NA == NA
+```
+
+```{r nas-check}
+"In every case, R does not have enough information to compute a result. Hence, each result is an unknown value, `NA`."
+```
+
+### is.na()
+
+The most confusing result above is this one:
+
+```{r}
+NA == NA
+```
+
+It's easiest to understand why this is true with a bit more context:
+
+```{r}
+# Let x be Mary's age. We don't know how old she is.
+x <- NA
+
+# Let y be John's age. We don't know how old he is.
+y <- NA
+
+# Are John and Mary the same age?
+x == y
+# We don't know!
+```
+
+If you want to determine if a value is missing, use `is.na()`:
+
+```{r}
+is.na(x)
+```
+
+### filter() and NAs
+
+`filter()` only includes rows where the condition is `TRUE`; it excludes both `FALSE` and `NA` values. If you want to preserve missing values, ask for them explicitly:
+
+```{r}
+df <- tibble(x = c(1, NA, 3))
+filter(df, x > 1)
+filter(df, is.na(x) | x > 1)
+```
+
+## Exercises
+
+### Exercise 1
+
+Use the code chunks below to find all flights that
+
+1. Had an arrival delay of two or more hours
+
+    ```{r filterex1, exercise = TRUE}
+
+    ```
+    ```{r filterex1-solution}
+    filter(flights, arr_delay >= 120) # arr_delay is in minutes
+    ```
+
+1. Flew to Houston (`IAH` or `HOU`)
+
+    ```{r filterex2, exercise = TRUE}
+
+    ```
+    ```{r filterex2-solution}
+    filter(flights, dest %in% c("IAH", "HOU"))
+    ```
+
+    <div id="filterex2-hint">
+    **Hint:** This is a good case for the `%in%` operator.
+    </div>
+
+1. Were operated by United (`UA`), American (`AA`), or Delta (`DL`)
+
+    ```{r filterex3, exercise = TRUE}
+
+    ```
+    ```{r filterex3-solution}
+    filter(flights, carrier %in% c("UA", "AA", "DL"))
+    ```
+
+    <div id="filterex3-hint">
+    **Hint:** The `carrier` variable lists the airline that operated each flight. This is another good case for the `%in%` operator.
+    </div>
+
+1. Departed in summer (July, August, and September)
+
+    ```{r filterex4, exercise = TRUE}
+
+    ```
+    ```{r filterex4-solution}
+    filter(flights, 6 < month, month < 10)
+    ```
+
+    <div id="filterex4-hint">
+    **Hint:** When converted to numbers, July, August, and September become 7, 8, and 9.
+    </div>
+
+1. Arrived more than two hours late, but didn't leave late
+
+    ```{r filterex5, exercise = TRUE}
+
+    ```
+    ```{r filterex5-solution}
+    filter(flights, arr_delay > 120, dep_delay <= 0)
+    ```
+
+    <div id="filterex5-hint">
+    **Hint:** Remember that departure and arrival delays are recorded in     _minutes_.
+    </div>
+
+1. Were delayed more than an hour, but made up more than 30 minutes in flight
+
+    ```{r filterex6, exercise = TRUE}
+
+    ```
+    ```{r filterex6-solution}
+    filter(flights, dep_delay > 60, (dep_delay - arr_delay) > 30)
+    ```
+
+    <div id="filterex6-hint">
+    **Hint:** The time a plane makes up is `dep_delay - arr_delay`.
+    </div>
+
+1. Departed between midnight and 6am (inclusive)
+
+    ```{r filterex7, exercise = TRUE}
+
+    ```
+    ```{r filterex7-solution}
+    filter(flights, dep_time <= 600 | dep_time == 2400)
+    ```
+
+    <div id="filterex7-hint">
+    **Hint:** Don't forget flights that left at exactly midnight (`2400`). This is a good case for an "or" operator.
+    </div>
+
+### Exercise 2
+
+Another useful dplyr filtering helper is `between()`. What does it do? Can you use `between()` to simplify the code needed to answer the previous challenges?
+
+```{r filterex8, exercise = TRUE}
+?between
+```
+
+### Exercise 3
+
+How many flights have a missing `dep_time`? What other variables are missing? What might these rows represent?
+
+```{r filterex9, exercise = TRUE}
+
+```
+```{r filterex9-solution}
+filter(flights, is.na(dep_time))
+```
+
+<div id="filterex9-hint">
+**Hint:** This is a good case for `is.na()`.
+</div>
+
+```{r filterex9-check}
+"Flights with a missing departure time are probably cancelled flights."
+```
+
+### Exercise 4
+
+Why is `NA ^ 0` not missing? Why is `NA | TRUE` not missing?
+Why is `FALSE & NA` not missing? Can you figure out the general
+rule?  (`NA * 0` is a tricky counterexample!)
+
+```{r filterex10, exercise = TRUE}
+
+```
+```{r filterex10-hint-1}
+# any number with a zero exponent is equal to one
+NA ^ 0
+```
+
+```{r filterex10-hint-2}
+# unknown value or true evaluates to true
+# (because if one operand of "or" is true, we can be sure the result is true)
+NA | TRUE
+```
+
+```{r filterex10-hint-3}
+# false and unknown value evaluates to false
+# (because if one operand of "and" is true, we can be sure the result is false)
+FALSE & NA
+```
+
+```{r filterex10-hint-4}
+# this is not a logical comparison, it's a numerical calculation involving an
+# unknown value, thus resulting in an unknown value
+NA * 0
+```
