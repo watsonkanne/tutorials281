@@ -1,0 +1,1429 @@
+---
+title: "Bivariate Regression"
+output:
+  learnr::tutorial:
+    progressive: false
+    allow_skip: true
+    self_contained: true
+    mode: selfcontained
+runtime: shiny_prerendered
+params:
+  evaluate:
+    value:
+      cache: false
+
+---
+
+```{r setup, include = FALSE}
+library(learnr)
+library(tidyverse)
+library(nycflights13)
+library(Lahman)
+library(knitr)
+
+knitr::opts_chunk$set(include = TRUE)
+
+
+tutorial_options(
+  exercise.timelimit = 60,
+  # A simple checker function that just returns the message in the check chunk
+  exercise.checker = function(check_code, ...) {
+    list(
+      message = eval(parse(text = check_code)),
+      correct = logical(0),
+      type = "info",
+      location = "append"
+    )
+  }
+)
+
+anes <- read.csv("anes_business.csv")
+anes <- na.omit(anes)
+
+```
+
+## Welcome
+
+### 
+
+When we learned about correlation coefficients, we learned that they cannot tell us the amount of change in our dependent variable that is associated with different levels of our independent variable. If we want that information, we need to estimate a linear regression model, which is what we'll be working on in this tutorial. 
+
+Click the button below to get started!
+
+
+
+## Topic 1: Points on the Coordinate Plane
+
+### 
+
+In order to understand bivariate regression, it will be helpful to review plotting points on a coordinate plane and the equation of a line.
+
+The **coordinate plane** (or Cartesian plane) is a two-dimensional space defined by two lines, or **axes**, that are perpendicular to each other. This means that they cross each other at a 90-degree angle. The **x-axis** is the horizontal line that occurs at Y = 0, and the **y-axis** is the vertical line that occurs at X = 0. 
+
+<br> 
+
+```{r, echo = FALSE, fig.align = "center"}
+
+ggplot() +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +  
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Coordinate Plane") +
+  scale_x_continuous(limits = c(-10,10)) +
+  scale_y_continuous(limits = c(-20, 20)) +
+  
+  annotate("text", label = "X-Axis", x = 7.5, y = 5, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 7.5, y = 3.75, xend = 7.5, yend = .5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  
+  annotate("text", label = "Y-Axis", x = 2.5, y = 15, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 1.35, y = 15, xend = .25, yend = 15), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") 
+
+
+```
+
+
+
+A specific point on the coordinate plane is defined by an **ordered pair**, which uses the notation (X, Y). In this notation, X is the point's X coordinate (where it falls horizontally on the coordinate plane), and Y is its Y coordinate (where it falls vertically on the coordinate plane). 
+
+Consider the point (3, 11). If we want to graph this point, we go to 3 on the x-axis and 11 on the y-axis and place our point at the spot where they cross:
+
+<br>
+
+```{r, echo = FALSE, warning = FALSE, fig.align = "center"}
+X <- c(3, 4, 5)
+Y <- c(11, 13, 15)
+
+dat1 <- as.data.frame(cbind(X, Y))
+
+ggplot(data = dat1, aes(x = X[1], y = Y[1])) +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) + 
+  geom_hline(yintercept = 11, linetype = 3, color = "steelblue2", linewidth = .75) +
+  geom_vline(xintercept = 3, linetype = 3, color = "steelblue2", linewidth = .75) +
+  geom_point(size = 3, color = "steelblue2") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Plotting (3, 11)") +
+  scale_x_continuous(limits = c(-10,10)) +
+  scale_y_continuous(limits = c(-20, 20)) +
+  
+  annotate("text", label = "(3, 11)", x = 3.75, y = 12.5, color = "steelblue2", size = 4) +
+  
+  annotate("text", label = "Y = 11", x = 7.5, y = 17, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 7.5, y = 16, xend = 7.5, yend = 11.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  
+  annotate("text", label = "X = 3", x = 1, y = 5, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 1.75, y = 5, xend = 2.75, yend = 5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") 
+
+
+```
+
+
+
+### Practice 
+
+Try it out! In the plot below, change the values of `x` and `y` to move the point around the coordinate plane.
+
+
+```{r pointex-setup, echo = F}
+
+df <- as.data.frame(NA)
+df$x <- NA
+df$y <- NA
+
+pointplot <- ggplot(df, aes(x = x, y = y)) +
+  geom_point() +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2)
+
+```
+
+
+
+```{r pointex, exercise = TRUE, error = F, warning = F}
+pointplot +
+  geom_point(x = 0, y = 0, shape = 19, size = 4, color = "steelblue2")
+```
+
+
+
+## Topic 2: Equation of a Line
+
+###
+### Slope-Intercept Form
+
+What if instead of plotting a single point, we want to plot a straight line? Here’s how the equation of that line is frequently written: 
+
+$$ y = mx + b $$
+
+This is known as the **slope-intercept form**, where
+
+* y = the y-values of the points on the line (where the points are placed vertically)
+
+* m = the **slope**, or how steep the line is (calculated by dividing the rise, or how far the line travels vertically, by the run, or how far the line travels to the right)
+
+* x = the x-values of the points on the line (where the points are placed horizontally)
+
+* b = the **y-intercept**, where the line crosses the y-axis.
+
+
+
+### Example 
+
+For example, say that we have a line defined by this equation: 
+
+$$ y = 2x + 5 $$
+
+This line crosses the y-axis at 5 and has a slope of 2 (which means that for every unit we move to the right, we move two units upward). It looks like this when plotted:
+
+<br>
+
+```{r, echo = FALSE, warning = FALSE, fig.align = "center"}
+
+ggplot(data = dat1, aes(x = X, y = Y)) +
+  geom_abline(slope = 2, intercept = 5, color = "steelblue2", size = .75) + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Plotting y = 2x + 5") +
+  scale_x_continuous(limits = c(0,20)) +
+  scale_y_continuous(limits = c(0, 20)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "grey80") +
+  geom_vline(xintercept = 0, linetype = 2, color = "grey80") +
+  
+  # Intercept
+  annotate("text", label = "Intercept", x = 2, y = 3, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 1.2, y = 3.25, xend = 0.35, yend = 4.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_point(aes(x = 0, y = 5.15), shape = "\u2605", color="steelblue2", size = 8) +
+  
+  # Slope
+  annotate("text", label = "Slope (= Rise/Run)", x = 7, y = 10, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 6.5, y = 10.5, xend = 5.25, yend = 12.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  
+  # Rise
+  annotate("text", label = "Rise", x = 5.5, y = 14.25, size = 3, color = "orchid3") +
+  geom_segment(aes(x = 5, y = 13, xend = 5, yend = 15), color = "orchid3", linetype = 2, size = .5) +
+
+  # Run
+  annotate("text", label = "Run", x = 4.5, y = 12, size = 3, color = "forestgreen") +
+  geom_segment(aes(x = 4, y = 13, xend = 5, yend = 13), color = "forestgreen", linetype = 2, size = .5) 
+
+
+```
+
+
+With this equation, we can use values of X to calculate the matching values of Y for points appearing on the line (and vice versa). This means that if we're interested in the Y value that corresponds with an X value of 3, we would plug 3 in for X in our equation:
+
+$$
+\begin{aligned}
+y &= 2(3) + 5 \\
+ & = 6 + 5 \\
+ & = 11 
+\end{aligned}
+$$
+
+If we're interested in the Y value that corresponds with an X value of 4:
+
+$$
+\begin{aligned}
+y &= 2(4) + 5 \\
+ &= 8 + 5 \\
+ &= 13
+\end{aligned}
+$$
+
+
+And for an X value of 5:
+
+$$
+\begin{aligned}
+y &= 2(5) + 5 \\
+ &= 10 + 5 \\
+ &= 15 
+\end{aligned}
+$$
+
+We can check this visually, too!
+
+<br>
+
+
+```{r, echo = FALSE, warning = FALSE, fig.align = "center"}
+
+ggplot(data = dat1, aes(x = X, y = Y)) +
+  geom_abline(slope = 2, intercept = 5, color = "black", size = .75) + 
+  geom_point(x = 3, y = 11, color = "steelblue2", size = 3) +
+  geom_point(x = 4, y = 13, color = "orchid3", size = 3) +
+  geom_point(x = 5, y = 15, color = "forestgreen", size = 3) +
+  
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X",
+       y = "Y",
+       title = "Points on the Line y = 2x + 5") +
+  scale_x_continuous(limits = c(0,20)) +
+  scale_y_continuous(limits = c(0, 20)) +
+  
+  geom_hline(yintercept = 0, linetype = 2, color = "grey80") +
+  geom_vline(xintercept = 0, linetype = 2, color = "grey80") +
+  
+  # Points
+  annotate("text", label = "(3, 11)", x = 4, y = 10, color = "steelblue2", size = 4) +
+  annotate("text", label = "(4, 13)", x = 5, y = 12, color = "orchid3", size = 4) +
+  annotate("text", label = "(5, 15)", x = 6, y = 14, color = "forestgreen", size = 4)
+
+```
+
+
+### Practice 1
+
+Let's take a look at lines with different slopes and intercepts. In the code below, the `geom_abline()` command adds a line to a ggplot based on its slope and intercept. Try changing the values of the `slope` and `intercept` arguments to see how the line changes.
+
+
+```{r lineex1-setup, echo = F}
+
+df <- as.data.frame(NA)
+df$x <- NA
+df$y <- NA
+
+lineplot <- ggplot(df, aes(x = x, y = y)) +
+  geom_point() +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  labs(x = "X",
+       y = "Y")
+
+```
+
+
+
+```{r lineex1, exercise = TRUE, error = F, warning = F}
+lineplot +
+  geom_abline(slope = 1, intercept = 1, linewidth = 1, color = "steelblue2")
+```
+
+
+### Practice 2
+
+Say we have this equation of a line:
+
+$$ y = -3x + 2 $$
+
+It looks like this when plotted: 
+
+```{r lineex2-setup, echo = F}
+
+df <- as.data.frame(NA)
+df$x <- NA
+df$y <- NA
+
+lineplot <- ggplot(df, aes(x = x, y = y)) +
+  geom_point() +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-10, 10)) +
+  scale_y_continuous(limits = c(-10, 10)) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  labs(x = "X",
+       y = "Y")
+
+```
+
+
+
+```{r lineex2-solution, warning = F, exercise.reveal_solution = FALSE, echo = F, fig.align = "center"}
+
+lineplot +
+  geom_abline(slope = -3, intercept = 2, linewidth = 1, color = "steelblue2")
+
+```
+
+
+How would we fill in the blanks in the code below to plot that line?
+
+
+```{r lineex2, exercise = TRUE, error = F, warning = F, exercise.blanks = "___"}
+
+lineplot +
+  geom_abline(slope = ___, intercept = ___, linewidth = 1, color = "steelblue2")
+
+```
+
+
+
+We'll be building on all of this information to estimate and interpret linear regression models. 
+
+
+## Topic 3: Overview of Bivariate Regression
+
+### 
+
+### General Intuition of Bivariate Regression
+
+We already know that **bivariate** refers to models or tests with two variables. A bivariate linear regression, then, is a linear regression model with two variables: one dependent variable and one independent variable. These variables are typically continuous.
+
+The general intuition behind bivariate regression is that it takes the following steps:
+
+* Create a scatterplot of your two variables, where the dependent variable is on the y-axis and the independent variable is on the x-axis.
+
+* Find the line that best fits the data, or the line that comes as close as possible to all of the data points simultaneously.
+
+* Find the slope and intercept of that line. 
+
+
+### The Population Bivariate Regression Model 
+
+Remember the difference between a population and a sample? A **population** is the entire group that we're interested in, and a **sample** is a subset (or smaller portion) of that group. 
+
+We'll start by pretending that we have data for the entire population. In the case of perfect or complete information, we can also perfectly explain or predict the relationship between our two variables of interest.
+
+With population data, the formula for a linear regression model looks very similar to the slope-intercept equation of a line we discussed earlier. It just uses slightly different notation:
+
+$$ Y_i = \alpha + \beta X_i + \epsilon_i $$
+
+With this notation,
+
+* $Y_i$ = The values of our dependent variable
+
+* $\alpha$ = The true population intercept
+
+* $\beta$ = The true population slope
+
+* $X_i$ = The values of our independent variable
+
+* $\epsilon_i$ = Random error
+
+Anything with a subscript of $i$ in the notation above ($Y$, $X$, and $\epsilon$) refers to a specific observation, or row in our data set. If a parameter doesn't have a subscript ($\alpha$, $\beta$), it means there is only one for the entire model---so there is a single intercept value and a single slope value.
+
+The big change from the equation of a line we looked at before and this equation is the addition of $\epsilon$ (epsilon) on the end. $\epsilon$ in this model accounts for variation in our dependent variable that isn't captured by the model. 
+
+Even in a situation with perfect information, there will still be times that our data points do not fall directly on our regression line---because social actors like individuals, organizations, and governments all have unique characteristics and behaviors! That's what this part of the model represents.
+
+
+### The Sample Bivariate Regression Model
+
+However, in social scientific research, we are nearly always working with sample, not population, data. In this case, the model looks slightly different:
+
+$$ \hat{Y}_i = \hat{\alpha} + \hat{\beta} X_i + \hat{\epsilon}_i $$
+
+Do you see the main difference between this model and the population model? It's the caret symbols (called "hats") above our $Y$, $\alpha$, $\beta$, and $\epsilon$. 
+
+In this notation,
+
+* $\hat{Y}_i$ = Read as "Y-hat", these are the values of Y that are **predicted** by our model
+
+* $\hat{\alpha}$ = Read as "alpha-hat," this is our **estimate** of the population intercept
+
+* $\hat{\beta}$ = Read as "beta-hat," this is our **estimate** of the population slope
+
+* $X_i$ = These are the **observed** values of our independent variable 
+
+* $\hat{\epsilon}$ = Read as "epsilon-hat," this is the **calculated** error term (or our residuals)
+
+This is the model that we'll be focusing on this semester.
+
+
+### Residuals 
+
+Since they're the big difference between the equation of a line that we discussed at the beginning of this tutorial and our regression model, it's worth discussing residuals in more detail. 
+
+A **residual** is the vertical distance between an observed data point (an observation in our data set) and the value of the dependent variable predicted by our regression line for that observation.  
+
+They are calculated by subtracting each predicted value of Y ($\hat{Y}_i$) from the associated observed value of Y ($Y_i$):
+
+$$ \hat{\epsilon} = Y_i - \hat{Y}_i $$
+
+This means that points falling directly on our line with have a residual of zero, points above our regression line will have positive residuals, and points below our regression line will have negative residuals. The average of our residuals will always be zero if we've correctly estimated a line of best fit.
+
+
+### Visualizing a Regression Model 
+
+We can visualize a regression line like this, where the independent variable is on the X-axis, and the dependent variable is on the Y-axis:
+
+<br>
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+x <- c(0, 30, 50, 80, 95, 105, 120, 150, 180, 190, 205, 210, 215, 230, 250, 300, 310, 350)
+
+y <- c(5, 8, 11, 15, 20, 15, 22, 15, 24, 12, 16, 17, 20, 23, 19, 13, 18, 32)
+
+
+dat <- as.data.frame(cbind(x, y))
+
+fit <- lm(y ~ x, data = dat)
+dat$predicted <- predict(fit)
+dat$residuals <- residuals(fit)
+
+
+ggplot(data = dat, aes(x = x, y = y)) +
+  geom_point(size = 2) +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "X (Independent Variable)",
+       y = "Y (Dependent Variable)",
+       title = "Visualizing a Regression Line") +
+  
+  # Axes 
+  geom_hline(yintercept = 0, color = "grey80", linetype = 2) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  
+  # Residuals 
+  annotate("text", label = "Residual", x = 250, y = 15, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 275, y = 15, xend = 295, yend = 15), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_segment(aes(xend = x, yend = predicted), alpha = 0.5, linetype = 2) +
+  
+  # Regression Line
+  annotate("text", label = "Regression Line", x = 270, y = 28, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 280, y = 27, xend = 320, yend = 24), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_smooth(method = "lm", se = FALSE, size = 0.75, color = "black") +
+
+  # Regression Intercept
+  annotate("text", label = "Intercept", x = 40, y = 18, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 36, y = 17, xend = 6, yend = 11), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_point(aes(x = 0, y = fit$coefficients[1] + .25), shape = "\u2605", color="steelblue2", size = 8) +
+  
+  # Slope
+  annotate("text", label = "Slope", x = 140, y = 7, size = 4, color = "steelblue2") +
+  geom_segment(aes(x = 140, y = 7.5, xend = 130, yend = 11.5), arrow = arrow(length = unit(0.2, "cm"), type = "closed"), color = "steelblue2") +
+  geom_segment(aes(x = 60, y = 12, xend = 130, yend = 12), color = "steelblue2", linetype = 2, size = .5) +
+  geom_segment(aes(x = 130, y = 12, xend = 130, yend = 15), color = "steelblue2", linetype = 2, size = .5) 
+
+```
+
+
+Each of the points represents the values of X and Y for a single observation (or row in our dataset). The solid black line (labeled "Regression Line") is the straight line that comes as close as possible to each of our data points simultaneously, or the line that best fits our data. Our line crosses the Y-axis at  $\hat{\alpha}$ (marked with a star and labeled "Intercept"). $\hat{\beta}$ is the slope of the line, or our estimate of the relationship between X and Y. The dashed lines between the points and our regression line represent the residuals.
+
+
+### Example 
+
+Say that we're interested in understanding when people like "big business" (large business corporations) more or less, and we think that a big driver is their ideology (how liberal or conservative they are).  
+
+In 2020, the American National Election Survey (ANES) asked its respondents to rate the degree to which they liked big business on a scale from 0 to 100, where 0 meant they didn't like it at all, 50 meant they were completely neutral, and 100 meant that they liked it as much as possible. They also asked respondents to self-identify their ideology on a scale of 1 (most liberal) to 7 (most conservative).
+
+On average, we expect that individuals with a more conservative ideology will favor big business more than individuals with a more liberal ideology. Here's the formal way we're going to phrase our hypotheses:
+
+***Null Hypothesis ($H_0$):** There is NO relationship between ideology and ratings of big business.*
+
+***Alternative Hypothesis ($H_A$)**: There IS a relationship between ideology and ratings of big business.*
+
+
+Here's a scatterplot of the data:
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_jitter(width = .3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)")
+
+```
+
+
+We estimate a linear regression model where the score for big business is our dependent variable and ideology is our independent variable, and we determine that the line of best fit for our results is described by this equation: 
+
+$$ \hat{Y}_i = 29.0 + 4.4 X_i + \hat{\epsilon}_i $$
+
+From this, we can see that the intercept of our regression line is 29.0, and the slope is 4.4. That means that our line crosses the y-axis at 29.0, and for each 1-unit increase in ideology (moving from left to right across our plot), our line predicts a 4.4-point increase in approval of big business, on average.
+
+Here's what that line of best fit looks like when we add it to our scatterplot---it's the solid blue line:
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+mod1 <- lm(business ~ ideology, data = anes)
+
+x <- c(0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7)
+xend <- c(1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7)
+y <- c(29.0, 29.0, 29.0 + 4.4, 29.0 + 4.4, 29.0 + (4.4 * 2), 29.0 + (4.4 * 2), 29.0 + (4.4 * 3), 29.0 + (4.4 * 3), 29.0 + (4.4 * 4), 29.0 + (4.4 * 4), 29.0 + (4.4 * 5), 29.0 + (4.4 * 5), 29.0 + (4.4 * 6), 29.0 + (4.4 * 6))
+yend <- c(29.0, 29.0 + 4.4, 29.0 + 4.4, 29.0 + (4.4 * 2), 29.0 + (4.4 * 2), 29.0 + (4.4 * 3), 29.0 + (4.4 * 3), 29.0 + (4.4 * 4), 29.0 + (4.4 * 4), 29.0 + (4.4 * 5), 29.0 + (4.4 * 5), 29.0 + (4.4 * 6), 29.0 + (4.4 * 6), 29.0 + (4.4 * 7))
+
+segdat <- as.data.frame(cbind(x, xend, y, yend))
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_jitter(width = .3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)") +
+  scale_x_continuous(limits = c(-.1, 7.5), breaks = seq(0, 7, by = 1)) +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_abline(slope = mod1$coefficients[2], intercept = mod1$coefficients[1],  
+              linewidth = 1.35, color = "steelblue2") +
+  annotate("text", label = "Intercept = 29.0", x = .6, y = 39, size = 4, color = "black") +
+  geom_segment(data = segdat, aes(x = segdat$x, xend = segdat$xend, y = segdat$y, yend = segdat$yend), 
+               color = "black", linetype = 2, size = .7) +
+  annotate("text", label = "Slope = 4.4", x = 5, y = 42, size = 4, color = "black") +
+  geom_point(x = 0, y = 30.5, shape = "\u2605", color="black", size = 8) 
+
+
+```
+
+Since the slope of our line is positive, it suggests a positive relationship between our two variables---as the ideology scale increases, so does the big business scale. This is starting to provide evidence to allow us to reject the null hypothesis.
+
+In the next topic, we'll discuss the method we used to estimate this model, Ordinary Least Squares (OLS). 
+
+
+
+
+
+## Topic 4: Ordinary Least Squares (OLS)
+
+###
+
+### Introduction to OLS
+
+In the previous topic, we discussed the general intuition behind linear regression models. Now, let's get into more specific detail about how we estimate these models. 
+
+The most common approach to estimating linear regression models is with **Ordinary Least Squares (OLS)**. This approach calculates the line of best fit for our data by minimizing the **sum of squared residuals**, or the variance in our dependent variable that isn't explained by the model. (This value is calculated by calculating the residual for each observation going into our model, squaring all of the residuals, and then adding them together---hence, the name.)
+
+Remember the general format for a linear regression model?
+
+$$ \hat{Y}_i = \hat{\alpha} + \hat{\beta} X_i + \hat{\epsilon}_i $$
+
+
+Any method for estimating this model needs to provide estimates of $\hat{\beta}$ and $\hat{\alpha}$. 
+
+
+For a bivariate linear regression model, OLS calculates $\hat{\beta}$ by multiplying the correlation coefficient of the two variables by the ratio of the standard deviation of each variable, like this:
+
+$$ \hat{\beta} = r_{x,y} \times \frac{s_y}{s_x}  $$
+
+And it calculates $\hat{\alpha}$ by multiplying $\hat{\beta}$ and the average of the independent variable ($X$) and then subtracting the product from the average of the dependent variable ($Y$):
+
+$$ \hat{\alpha} = \bar{Y} - \hat{\beta}\bar{X} $$
+
+### Practice: OLS Calculations
+
+In the previous topic, you saw the regression line describing the relationship between respondents' ideology and their ratings of big business. It had this equation: 
+
+$$ \hat{Y}_i = 29.0 + 4.4 X_i + \hat{\epsilon}_i $$
+
+Let's see if we can calculate that $\hat{\beta}$ and $\hat{\alpha}$!
+
+First, we need to calculate $\hat{\beta}$, which needs three things:
+
+* The correlation coefficient for `business` and `ideology`
+
+* The standard deviation for `business`
+
+* The standard deviation for `ideology`
+
+Remember that the command for calculating a correlation coefficient is `cor()`, and the command for calculating a standard deviation is `sd()`. Our variables are stored in a data frame called `anes`.
+
+Using the practice space below, can you calculate the $\hat{\beta}$ of 4.4 for these variables? 
+
+```{r betahatex, exercise = TRUE}
+
+```
+
+
+```{r betahatex-hint-1}
+
+cor(___, ___) * 
+
+```
+
+
+```{r betahatex-hint-2}
+
+cor(___, ___) * (sd(___) / sd(___))
+
+```
+
+
+```{r betahatex-solution}
+
+cor(anes$business, anes$ideology) * (sd(anes$business, na.rm = T) / sd(anes$ideology, na.rm = T))
+
+```
+
+Now, let's calculate $\hat{\alpha}$, which we know is 29.0. Just like with $\hat{\beta}$, this calculation needs three things:
+
+* The mean of `business`
+
+*  $\hat{\beta}$ (which is 4.4)
+
+* The mean of `ideology`
+
+
+```{r alphahatex, exercise = TRUE}
+
+```
+
+
+```{r alphahatex-hint-1}
+
+mean(___, na.rm = T) 
+
+```
+
+
+```{r alphahatex-hint-2}
+
+mean(___, na.rm = T) - (4.4 * ___)
+
+```
+
+
+```{r alphahatex-solution}
+
+mean(anes$business, na.rm = T) - (4.4 * mean(anes$ideology, na.rm = T))
+  
+```
+
+
+Nice work!
+
+Thankfully, we don't typically need to calculate our own $\hat{\alpha}$ and $\hat{\beta}$, because R will do this for us. Click into the next topic to see how.
+
+
+
+## Topic 5: Performing Bivariate Regressions in R
+
+
+To run a linear regression model in R, we need to do the following:
+
+* Create an object by naming it and using the assignment arrow (`<-`). 
+
+* Use the `lm()` command to specify that we're running a **l**inear **m**odel.
+
+* Identify our variables, using the format `DV ~ IV`, where DV is our dependent variable and IV is our independent variable. 
+
+* Identify our data frame. 
+
+In the example code below, we have created a model object called `mod1`, which is a linear model (`lm()`) that has the dependent variable `business` and the independent variable `ideology`, both of which are drawn from the data frame called `anes`. We can either use the `data` argument or use the `dataframe$column` notation to specify the data frame we're using.
+
+The `summary()` command shows us our model results when we put our model object's name in the parentheses, and the `nobs()` command gives us the **n**umber of **obs**ervations going into our model (when run on our model object, `mod1`. It's important to note that this won't necessarily be the same as the number of observations in our data frame, because the `lm()` command only draws on observations that aren't missing data for any of the variables in our model. So make sure to use the `nobs()` command to get this number!
+
+
+
+```{r, echo = TRUE}
+
+mod1 <- lm(business ~ ideology, data = anes)
+
+# OR 
+
+mod1 <- lm(anes$business ~ anes$ideology)
+
+
+summary(mod1)
+
+```
+
+<br>
+
+There's a lot of information packed into those model results! Where should we focus our attention?
+
+* **Call Section:** At the top of our results, R prints the code that we used to run our model. We can see again that our dependent variable is `business`, because it appears before the `~`, and our independent variable is `ideology`, because it appears after the `~`. 
+
+* **Coefficients Section:** This section contains most of the most important information we need from our model results. 
+
+    * **Estimate:** This column has our $\hat{\alpha}$ and $\hat{\beta}$. $\hat{\alpha}$ (29.0) appears in the row marked *Constant*, and $\hat{\beta}$ (4.4) appears in the row marked with our independent variable, *Ideology*. If they look slightly different than the numbers we've referenced above, it's just due to rounding. 
+    
+    * **Std. Error:** This column has the standard errors of each estimate (our $\hat{\alpha}$ (0.855) and $\hat{\beta}$) (0.199). Standard errors represent the uncertainty of each of our estimates. They’re always positive, and smaller standard errors are better. It represents how much the estimates would be expected to change if we repeated our analysis over and over again with different samples from the same population. We don't typically interpret them much, but we do usually report them. 
+    
+    * **t value:** This column reports the t-scores for each of our estimates. These values are calculated by dividing the estimate by the standard error. In general, t-scores that are more positive than 1.96 or more negative than -1.96 are statistically significant (at the 95 percent confidence level). Both of our t-scores (33.97 for our interecept and 22.07 for our slope) indicate statistical significance.
+    
+    * **Pr(>|t|):** This column reports the p-values associated with each t-score. Remember that because we're working with a 95 percent confidence interval, p-values of less than 0.05 will indicate statistically significant results. These are calculated from our t-scores, so they'll never disagree with them. That means that we shouldn't be surprised to see that both of our p-values are less than 0.05 (<2e-16 for each, which means that the value is basically 0).
+    
+    * **Stars:** To help us quickly see which estimates are statistically significant, R provides stars for significant results. You'll see different numbers of stars for different p-values, but for our purposes, anything with one or more stars will be considered statistically significant, because those are the ones with a p-value of less than 0.05 (at least). 
+    
+* **Multiple R-Squared ($R^2$):** This value tells us the proportion of variance of our dependent variable that is explained by our model. In a bivariate model, this is equal to the correlation coefficient for our two variables ($r$) squared. $R^2$ ranges from 0 to 1, and higher values are typically considered better. Our $R^2$ value of 0.104 tells us that we have explained 10.4 percent of the variance of `business`. However, this number is most useful when comparing different models performed on the same data.
+
+* **Number of Observations (N):** It's also standard to report the number of observations that went into our model. Importantly, this number won't always match with the number of observations in our data frame, so we have to produce it with a separate command (`nobs()`), which we run on our model object (`mod1`). This model used 4,200 observations.
+
+
+### Practice
+
+Now, you try it! Say that instead of `ideology`, our independent variable is `age`. Write the code for this model below; you can call it `mod2`. Don't forget to use the `summary()` command to ask R to show the model results and the `nobs()` command to get the number of observations.
+
+
+```{r bivregex, exercise = TRUE}
+
+```
+
+
+```{r bivregex-solution}
+
+mod2 <- lm(business ~ age, data = anes)
+
+# OR 
+
+mod2 <- lm(anes$business ~ anes$age)
+
+
+summary(mod2)
+nobs(mod2)
+
+```
+
+<br>
+
+Can you find the $\hat{\alpha}$ (intercept), $\hat{\beta}$ (slope), N, and $R^2$ for `mod2`?
+
+
+```{r regquiz-a, echo = FALSE}
+
+quiz(caption = "",
+  question("What is the estimate of alpha-hat for mod2?",
+           answer("1.15", message = "Not quite! This is one of our standard errors. Alpha-hat will appear in the Estimate column."),
+           answer("0.20", message = "Not quite! This value appears in the Estimate column, but it's in the anes$age row. That means it's a different important value."),
+           answer("37.11", correct = TRUE, message = "That's right! This value appears in the Intercept row of the Estimate column, so it is our alpha-hat for this model."),
+           answer("0.00", message = "Not quite! This is one of our p-values. Alpha-hat will appear in the Estimate column."),
+           allow_retry = TRUE
+  ),
+  
+  question("What is the estimate of beta-hat for mod2?",
+           answer("0.20", correct = TRUE, message = "That's right! This value appears in the anes$ideology row of the Estimates column. That makes it our estimate of beta-hat."),
+           answer("0.00", message = "Not quite! This is one of our p-values. Alpha-hat will appear in the Estimate column."),
+           answer("0.02", message = "Not quite! This is one of our standard errors. Beta-hat will appear in the Estimate column."),
+           answer("37.11", message = "Not quite! This value appears in the Estimate column, but it's in the anes$age row. That means it's a different important value."),
+           allow_retry = TRUE
+  ),
+  
+  question("What is our N for mod2?",
+           answer("4198", message = "Not quite! This value describes our degrees of freedom, or the independent pieces of information that we're bringing to our model. It is calculated from N, but it's different. Remmember that we have to run a specific command to get the value of N."),
+           answer("4200", correct = TRUE, message = "That's right! This is the value produced by the code nobs(mod2)."),
+           answer("32.29", message = "Not quite! This is the t-score for our intercept. Remmember that we have to run a specific command to get the value of N."),
+           answer("8.53", message = "Not quite! This is the t-score for the age variable. Remmember that we have to run a specific command to get the value of N."),
+           allow_retry = TRUE
+  ),
+  
+  question("What is our R-squared for mod2?",
+           answer("0.00", message = "Not quite! This is one of our p-values. Remember that R-squared is directly labeled in our model output."),
+           answer("22.48", message = "Not quite! This is our residual standard error, which is a different goodness-of-fit statistic. Remember that R-squared is directly labeled in our model output."),
+           answer("0.02", correct = TRUE, message = "That's right! This is our R-squared for this model. It tells us the proportion of the variance of our dependent variable that our model explains---in this case, 1.7 percent."),
+           answer("0.20", message = "Not quite! This value appears next to our age variable in the Estimate column. It's another important value, but it isn't our R-squared. Remember that R-squared is directly labeled in our model output."),
+           allow_retry = TRUE
+  )
+)
+  
+```
+
+
+
+
+## Topic 6: Converting R Regression Output to a Table
+
+In the previous topic, we looked at performing bivariate regression models in R and explored a bit of the output R gives us for these models. While this is the way that regression output looks in R, if we want to present our results to anyone (in a paper, presentation, etc.), we need to convert them into a table. When we read about model results in published works, they will also be presented in tables. So it's an important skill to know how results in R and in tables are connected to each other!
+
+As a reminder, here are our results for `mod1`, where our dependent variable is `business` and our independent variable is `ideology`.
+
+
+```{r, echo = TRUE}
+
+mod1 <- lm(business ~ ideology, data = anes)
+
+summary(mod1)
+nobs(mod1)
+
+```
+
+
+<br>
+
+As a table, these results will look something like this, instead:
+
+
+<center>
+
+```{r, echo = FALSE, results = "asis", message = FALSE}
+
+library(modelsummary)
+library(gt)
+
+custom_theme <- function(x, ...) {
+    x %>% gt::opt_row_striping(row_striping = TRUE)
+}
+options("modelsummary_theme_gt" = custom_theme)
+
+models <- list("Model 1" = lm(business ~ ideology, data = anes))
+
+gm <- list(
+  list("raw" = "nobs", "clean" = "N", "fmt" = 0),
+  list("raw" = "r.squared", "clean" = "R-squared", "fmt" = 3))
+
+tab1 <- modelsummary(models, 
+             output = "gt",
+             stars = c('*' = .05),
+             notes = " \u2217 p < 0.05",
+             coef_map = c("ideology" = "Ideology (1-7; 7 = Conservative)", "(Intercept)" = "Constant"),
+             gof_map = gm,
+             estimate = "{estimate}{stars}"
+             )
+
+tab1 %>%
+  tab_header(title = "Big Business Thermometer (0-100)") %>%
+  tab_options(heading.background.color = "steelblue") 
+
+```
+
+</center>
+
+<br> 
+
+Where can we find all of our important values in this table, and where did they come from in R?
+
+* **Dependent variable ($Y$):** The dependent variable of a model will typically appear somewhere at the top. In this table, it's in the heading at the very top, which tells us that the big business thermometer (which ranges from 0 to 100) is our dependent variable. We can match this with the *Call* section in our model results in R.
+
+* **Independent variable ($X$):** The independent variable(s) of the model will be named in a column along the left-hand side of the table. If there is more than one independent variable (more on this when we turn to multiple regression), the most important or interesting independent variable will frequently be named first. Here, our only independent variable is ideology, which ranges from 1-7, with higher values meaning more conservative. We can also match this with the *Call* section in our model results in R.
+
+* **Intercept/Constant ($\hat{\alpha}$):** The estimated intercept of our model (29.0) appears in the row marked *Constant* in our table. We got this value from the *Coefficients* section of our model results in R, in the column marked *Estimate* and the row marked *Intercept*.
+
+* **Slope/Coefficient Estimate ($\hat{\beta}$):** The estimated slope of our model (4.4) appears in the row marked *Ideology (1-7)* in our table. We got this value from the *Coefficients* section of our model results in R, in the column marked *Estimate* and the row marked *ideology*. If we had multiple independent variables, each would be associated with their own slopes in R and in our table.
+
+* **Standard Errors:** The numbers in the table with parentheses around them are the standard errors associated with each estimate. The standard error for our intercept is 0.855, and the standard error for our slope is 0.199. These come from the *Std. Error* column of the *Coefficients* section in R. 
+
+* **Statistical Significance:** Statistically significant estimates (those with p-values of less than 0.05 in R) are marked with 1 star in this table. Note that it's the estimates themselves that get stars, not their standard errors, and the table note tells us what the stars mean. 
+
+* **Number of Observations:** The number of observations going into our model (4,200) is called N in this table. We produced this with the `nobs()` command in R.
+
+* **R-squared:** Our R-squared of 0.104 is labeled $R^2$ in this table. This is the Multiple R-Squared value from R.
+
+In the next topic, we'll turn to interpreting these values in more detail. 
+
+
+### Practice 
+
+Your turn! Remember these R results for `mod2`?
+
+```{r, echo = TRUE}
+
+mod2 <- lm(business ~ age, data = anes)
+
+summary(mod2)
+nobs(mod2)
+
+```
+
+<br>
+
+How would we fill in each of the missing values in the table below?
+
+```{r, echo = FALSE, results = "asis", message = FALSE}
+
+library(modelsummary)
+library(gt)
+
+custom_theme <- function(x, ...) {
+    x %>% gt::opt_row_striping(row_striping = TRUE)
+}
+options("modelsummary_theme_gt" = custom_theme)
+
+ti <- data.frame(
+  term = c("Age", "Constant"),
+  estimate = c("A", "C"),
+  std.error = c("B", "D"))
+
+gl <- data.frame(
+  N = "E",
+  `R-squared` = "F")
+
+mod <- list(
+  tidy = ti,
+  glance = gl)
+class(`mod`) <- "modelsummary_list"
+
+mod2 <- list("Model 2" = mod)
+
+
+tab3 <- modelsummary(mod2, 
+                     output = "gt")
+
+tab3 %>%
+  tab_header(title = "Big Business Thermometer (0-100)") %>%
+  tab_options(heading.background.color = "steelblue")
+
+```
+
+
+```{r regquiz-b, echo = FALSE}
+
+quiz(caption = "",
+  question("How should we fill in the missing value labeled A?",
+           answer("37.11", message = "Not quite! This appears in the Intercept row of the Estimates column. We're looking for the beta-hat value here."),
+           answer("1.15", message = "Not quite! This value appears in the Intercept row of the Std. Error column. That means it's one of our standard errors. We're looking for the beta-hat value here."),
+           answer("0.20", correct = TRUE, message = "That's right! This value appears in the age row of the Estimate column, so it is our beta-hat for this model."),
+           answer("0.02", message = "Not quite! Although this value appears in the age row, it's in the Std. Error column, which makes it one of our standard errors. We're looking for the beta-hat value here."),
+           allow_retry = TRUE
+  ),
+  
+  question("How should we fill in the missing value labeled B?",
+           answer("37.11", message = "Not quite! This appears in the Intercept row of the Estimates column. We're looking for the standard error of our beta-hat value."),
+           answer("1.15", message = "Not quite! This value appears in the Intercept row of the Std. Error column, but we're looking for the standard error of our beta-hat value."),
+           answer("0.20", message = "Not quite! This is our beta-hat value. We need to find the standard error for this value."),
+           answer("0.02", correct = TRUE, message = "That's right! This the standard error for our estimate of beta-hat."),
+           allow_retry = TRUE
+  ),
+  
+  question("How should we fill in the missing value labeled C?",
+           answer("37.11", correct = TRUE, message = "That's right! This appears in the Intercept row of the Estimates column. That makes it our alpha-hat."),
+           answer("1.15", message = "Not quite! This value appears in the Intercept row, but it's in the Std. Error column. That means it's one of our standard errors. We're looking for the alpha-hat value here."),
+           answer("0.20", message = "Not quite! This value appears in the age row of the Estimate column, so it is our beta-hat for this model. We're looking for the alpha-hat value here."),
+           answer("0.02", message = "Not quite! This value appears in the age row of the Std. Error column, which makes it one of our standard errors. We're looking for the alpha-hat value here."),
+           allow_retry = TRUE
+  ),
+  
+  question("How should we fill in the missing value labeled D?",
+           answer("37.11", message = "Not quite! This appears in the Intercept row of the Estimates column, which makes it our alpha-hat value. We're looking for that value's standard error."),
+           answer("1.15", correct = TRUE, message = "That's right! This value appears in the Intercept row of the Std. Error column. That makes it the standard error for our estimate of alpha-hat."),
+           answer("0.20", message = "Not quite! This is our beta-hat value. We need to find the standard error for the alpha-hat value."),
+           answer("0.02", message = "Not quite! This the standard error for our estimate of beta-hat. We're looking for the standard error of our alpha-hat value."),
+           allow_retry = TRUE
+  ),
+  
+  question("How should we fill in the missing value labeled E?",
+           answer("4200", correct = TRUE, message = "That's right! This is the value produced by the code nobs(mod2), so it represents the number of observations going into our model."),
+           answer("0.02", message = "Not quite! This is either the R-squared or the standard error of our beta-hat value. Remmember that we have to run a specific command to get the number of observations going into our model."),
+           answer("4198", message = "Not quite! This value describes our degrees of freedom, or the independent pieces of information that we're bringing to our model. It is calculated from N, but it's different. Remmember that we have to run a specific command to get the number of observations going into our model."),
+           answer("22.48", message = "Not quite! This is the Residual Standard Error for our model, which is a goodness-of-fit statistic. Remmember that we have to run a specific command to get the number of observations going into our model."),
+           allow_retry = TRUE
+  ),
+  
+  question("How should we fill in the missing value labeled F?",
+           answer("0.00", message = "Not quite! This is one of our p-values. Remember that the Multiple R-squared is directly labeled in our model output."),
+           answer("22.48", message = "Not quite! This is our residual standard error, which is a different goodness-of-fit statistic. Remember that the Multiple R-squared is directly labeled in our model output."),
+           answer("0.02", correct = TRUE, message = "That's right! This is our Multiple R-squared for this model. It tells us the proportion of the variance of our dependent variable that our model explains---in this case, 1.7 percent."),
+           answer("0.20", message = "Not quite! This value appears next to our age variable in the Estimate column. It's another important value, but it isn't our R-squared. Remember that the Multiple R-squared is directly labeled in our model output."),
+           allow_retry = TRUE
+  ),
+  
+  question("Which values in our table should get a star? (Select all that apply.)",
+           answer("A", correct = TRUE),
+           answer("B"),
+           answer("C", correct = TRUE),
+           answer("D"),
+           answer("E"),
+           answer("F"),
+           allow_retry = TRUE,
+           try_again = "Not quite! Remember that statistically significant estimates of alpha-hat and beta-hat are the only values that get stars in tables of results, and statistical significance is determined by p-values of less than 0.05.",
+           correct = "That's right! Statistically significant estimates of alpha-hat and beta-hat are the only values that get stars in tables of results, and statistical significance is determined by p-values of less than 0.05. Both our alpha-hat and our beta-hat have p-values that are close to 0, so they should each get a star in this table."
+  )
+)
+  
+```
+
+
+## Topic 7: Interpreting Bivariate Regression Output
+
+###
+
+Now that we've covered the mechanics of running bivariate linear regression models, let's put this knowledge into the context of our hypothesis testing framework and work on interpreting our results.
+
+### Step 1: Null and Alternative Hypotheses
+
+To recap, our working example for this tutorial has been the relationship between individuals' ideologies and their feelings about big business. In general, people with more conservative ideologies favor big business more than people with more liberal ideologies. Formally, we had these hypotheses: 
+
+***Null Hypothesis ($H_0$):** There is NO relationship between ideology and ratings of big business.*
+
+***Alternative Hypothesis ($H_A$)**: There IS a relationship between ideology and ratings of big business.*
+
+
+### Step 2: Hypothesis Test
+
+We ran a bivariate regression model to test this relationship and got the results in the table below. 
+
+<center>
+
+```{r, echo = FALSE, results = "asis", message = FALSE}
+
+library(modelsummary)
+library(gt)
+
+custom_theme <- function(x, ...) {
+    x %>% gt::opt_row_striping(row_striping = TRUE)
+}
+options("modelsummary_theme_gt" = custom_theme)
+
+models <- list("Model 1" = lm(business ~ ideology, data = anes))
+
+gm <- list(
+  list("raw" = "nobs", "clean" = "N", "fmt" = 0),
+  list("raw" = "r.squared", "clean" = "R-squared", "fmt" = 3))
+
+tab1 <- modelsummary(models, 
+             output = "gt",
+             stars = c('*' = .05),
+             notes = " \u2217 p < 0.05",
+             coef_map = c("ideology" = "Ideology (1-7; 7 = Conservative)", "(Intercept)" = "Constant"),
+             gof_map = gm,
+             estimate = "{estimate}{stars}"
+             )
+
+tab1 %>%
+  tab_header(title = "Big Business Thermometer (0-100)") %>%
+  tab_options(heading.background.color = "steelblue") 
+
+```
+
+</center>
+
+
+### Steps 3 and 4: Compare Results to a Set Standard and Draw Conclusions
+
+In the table above, we can see that our coefficient estimate for ideology ($\hat{\beta}$) got a star, so its p-value is less than 0.05. That means that we can reject the null hypothesis---there *does* seem to be a relationship between our two values! 
+
+Let's go into more detail about how to interpret these results. 
+
+<br>
+
+#### The Intercept ($\hat{\alpha}$)
+
+Remember that in a graph, the y-intercept (or just "the intercept") is where a line crosses the y-axis, which occurs when $X$ equals 0. That means that the intercept (our $\hat{\alpha}$) is the predicted value of $Y$ (our dependent variable) when $X$ (our independent variable) equals 0.
+
+We can show this mathematically, too. Here's a stripped-down version of our regression model:
+
+$$ \hat{Y}_i = \hat{\alpha} + \hat{\beta} X_i $$
+
+What happens when we plug in 0 for X?
+
+$$
+\begin{aligned}
+\hat{Y}_i &= \hat{\alpha} + \hat{\beta} (0) \\
+ &= \hat{\alpha} + 0  \\
+ & = \hat{\alpha} 
+\end{aligned}
+$$
+
+When we're interpreting this value, we always follow this fill-in-the-blank format: **"[The intercept] is the predicted value of [dependent variable] when [independent variable] is zero."** In our working example, our value of $\hat{\alpha}$ is 29.0. That means that the predicted value of the big business thermometer when our ideology score is 0 is 29.0. 
+
+"But wait," you might be thinking, "our ideology variable only ranges between 1 and 7. It isn't possible for someone to have an ideology score of 0!" And you'd be right! How meaningful this value is for our model interpretation is going to be dependent on the specific data we're working with. In this case, this isn't a meaningful value, because an individual with an ideology value of 0 will not exist in our data---they can't. But we still have to have an intercept value to estimate our regression model.
+
+
+<br> 
+
+#### The Slope ($\hat{\beta}$)
+
+In our discussion of line graphs, we saw that the slope of a line describes its angle, or how much the line tilts up or down. More formally, it's described as the change in $Y$ (either an increase or a decrease) that's associated with a 1-unit increase in $X$. In order to draw a straight line, every time we move one unit to the right, we have to move the same number of units up or down. 
+
+We can see how this works mathematically, too. When we were trying to understand the intercept, we plugged in 0 for $X$. What happens when we plug in 1, instead (making $X$ increase by 1)?
+
+$$
+\begin{aligned}
+\hat{Y}_i &= \hat{\alpha} + \hat{\beta} (1) \\
+ &= \hat{\alpha} + 1\hat{\beta}  \\
+\end{aligned}
+$$
+
+And when we plug in 2 for $X$, increasing $X$ by 1 again?
+
+$$
+\begin{aligned}
+\hat{Y}_i &= \hat{\alpha} + \hat{\beta} (2) \\
+ &= \hat{\alpha} + 2\hat{\beta}  \\
+\end{aligned}
+$$
+
+Each time we increase $X$ by 1, our value of $Y$ increases by another $\hat{\beta}$. 
+
+When we're formally interpreting $\hat{\beta}$ in a bivariate regression model, we use this format: **As [independent variable] increases by 1 unit, [dependent variable] [increases/decreases] by [$\hat{\beta}$] units, on average.** Whether we fill in "increases" or "decreases" there depends on whether or not $\hat{\beta}$ is positive ("increases") or negative ("decreases"). We add the "on average" part because this number may not perfectly describe each observation in our model; that's why we have residuals. It's describing the average way that these variables move together across all of our different observations. 
+
+In our example, the value of $\hat{\beta}$ is 4.4. That means we would interpret it this way: As ideology increases by 1 unit, the rating of big business increases by 4.4 units, on average.
+
+
+<br> 
+
+#### N
+
+N is perhaps the most straightforward of the values to interpret. As we've covered in previous topics, it refers to our sample size, or the **number of observations going into our model**. In our example, the N is 4,200, so there were 4,200 rows in our data frame with complete data (no `NA`s) that went into estimating our model.
+
+
+
+<br> 
+
+#### $R^2$ (R-squared)
+
+Finally, we have the $R^2$ value, which represents **the proportion of the variance in our dependent variable that is explained by our model.** The potential values of $R^2$ range between 0 and 1, since it's a proportion, and higher values represent more of the variance being explained. (It may help you to remember this range if you remember that in a bivariate model, it is equal to the correlation coefficient squared. Since correlation coefficients range between -1 and 1, $R^2$ must range between 0 and 1.) If we want a percentage value, we just multiply it by 100. 
+
+We can think about it this way: Whatever our dependent variable is, it can take on a variety of values. In our example, it's the big business thermometer, which can take on any whole number between 0 and 100. From the scatterplot of our data, shown again below, we know that while there is a positive relationship between our variables, our observations don't fall on a perfectly straight line. Much like the correlation coefficient, the $R^2$ value tells us how close to a straight line they *do* fall---how much explanatory power we've provided for those different values (and how much more we still need to find). 
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_jitter(width = .3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)")
+
+```
+
+
+In our example, the $R^2$ value is 0.104. That means that we have explained 10.4 percent of the variance in our dependent variable, the ratings of big business. 
+
+That being said, it's rarely a good idea to read too much into one $R^2$ value on its own. Is an $R^2$ value of 0.10 good? It depends! What if no one had ever done any research into how people feel about big business before? Surely explaining 10 percent is better than not explaining anything at all. However, if we have a ton of research on people's opinions on this matter and existing models explain 50 or 60 percent of that variance, then 10 percent feels very weak.
+
+$R^2$ is most informative when we have nested models, or multiple slightly different models run on the same data, and we want to compare them to see which one best fits our data. The model with the highest $R^2$ value will be the one that best fits our data, or the one with the most explanatory power. 
+
+
+### Practice
+
+Let's apply all of this to the model you've been running, `mod2`! As a reminder, here is the table of results for that model:
+
+<center>
+
+```{r, echo = FALSE, results = "asis", message = FALSE}
+
+library(modelsummary)
+library(gt)
+
+custom_theme <- function(x, ...) {
+    x %>% gt::opt_row_striping(row_striping = TRUE)
+}
+options("modelsummary_theme_gt" = custom_theme)
+
+models <- list("Model 2" = lm(business ~ age, data = anes))
+
+gm <- list(
+  list("raw" = "nobs", "clean" = "N", "fmt" = 0),
+  list("raw" = "r.squared", "clean" = "R-squared", "fmt" = 3))
+
+tab3 <- modelsummary(models, 
+             output = "gt",
+             stars = c('*' = .05),
+             notes = " \u2217 p < 0.05",
+             coef_map = c("age" = "Age", "(Intercept)" = "Constant"),
+             gof_map = gm,
+             estimate = "{estimate}{stars}"
+             )
+
+tab3 %>%
+  tab_header(title = "Big Business Thermometer (0-100)") %>%
+  tab_options(heading.background.color = "steelblue") 
+
+```
+
+</center>
+
+
+```{r regquiz-c, echo = FALSE}
+
+quiz(caption = "",
+  question("Which of the following is an appropriate way to interpret the beta-hat for Model 2?",
+           answer("As age increases by 0.203 units, ratings of big business increase by 1 unit, on average.", message = "Not quite! In the formal interpretation of beta-hat, we always start with our independent variable increasing by 1 unit."),
+           answer("As age increases by 1 unit, ratings of big business increase by 0.024 units, on average.", message = "Not quite! This interpretation is drawing on the standard deviation of the coefficient estimate for age, rather than the estimate itself."),
+           answer("As age increases by 1 unit (1 year), ratings of big business increase by 0.203 units, on average.", correct = TRUE, message = "That's right! This interpretation of the beta-hat value follows the correct format."),
+           answer("The predicted rating of big business when age is 0 is 0.203.", message = "Not quite! This is following the format for interpreting an intercept, instead."),
+           allow_retry = TRUE
+  ),
+  
+  question("Which of the following is an appropriate way to interpret the intercept in Model 2?",
+           answer("The predicted rating of big business when age is 0 is 37.106.", correct = TRUE, message = "That's right! This interpretation of the intercept follows the correct formatting. It's not a particularly meaningful value, though, since it's unlikely that zero-year-olds have any opinion on big business."),
+           answer("As age increases by 1, ratings of big business increase by 37.106, on average.", message = "Not quite! This interpretation is following the format of a beta-hat interpretation, instead. That doesn't work for alpha-hat (the intercept)."),
+           answer("The predicted rating of big business when age is 0 is 1.149.", message = "Not quite! This interpretation draws on the standard error of the intercept estimate, rather than the value itself."),
+           answer("The predicted constant when ratings of big business are 0 is 37.106.", message = "Not quite! This interpretation switches around the format a little. Remember that our estimates will always refer to values of or changes in our dependent variable that are related to values of or changes in our independent variable."),
+           allow_retry = TRUE
+  ),
+  
+  question("Which of the following words/phrases does NOT refer to the slope of a regression model?",
+           answer("Coefficient estimate", message = "Nope! This one refers to the slope."),
+           answer("Beta-hat", message = "Nope! This one refers to the slope."),
+           answer("Regression coefficient", message = "Nope! This one refers to the slope."),
+           answer("Alpha-hat", correct = TRUE, message = "That's right! Alpha-hat refers to the intercept of a model, not its slope."),
+           allow_retry = TRUE
+  ),
+  
+  question("How can we interpret the N for Model 2?",
+           answer("There are 4,200 observations in our data frame.", message = "Not necessarily! There could be more (maybe even a LOT more) observations in our data frame than this."),
+           answer("We explained 4.2 percent of the variance in our dependent variable.", message = "Not quite! This is more like an interpretation of R-squared, although we've divided by 100 instead of multiplying by it. That kind of interpretation doesn't apply here."),
+           answer("4,200 observations went into estimating this model.", correct = TRUE, message = "That's right! N refers to the number of observations used to estimate a model."),
+           answer("There are 4,200 different values that are possible for our dependent variable.", message = "Nope! We know that our dependent variable, the big business thermometer, only takes on whole numbers between 0 and 100."),
+           allow_retry = TRUE
+  ),
+  
+  question("What percentage of the variance of the big business thermometer is explained by Model 2?",
+           answer("0.017", message = "Almost! This is the proportion of variance we've explained. How can we get to the percentage?"),
+           answer("0.20", message = "Not quite! This value is referencing the beta-hat of the model. We can't interpret it this way."),
+           answer("1.7", correct = TRUE, message = "That's right! This is a correct interpretation of the R-squared value."),
+           answer("20.3", message = "Not quite! This value is referencing the beta-hat of the model (multiplied by 100). We can't interpret it this way."),
+           allow_retry = TRUE
+  )
+)
+  
+```
+
+
+## Topic 8: Visualizing Bivariate Regression Models
+
+###
+
+A final step in communicating the results of regression models is visualizing them. In general, we're going to start by making a scatterplot of our data, with our independent variable on the x-axis and our dependent variable on the y-axis.
+
+We can use either `geom_point()` or `geom_jitter()` to make this plot. They're both scatterplots, but `geom_jitter()` is useful when a lot of our points would otherwise be plotted directly on top of each other, making it difficult to view the relationship between our variables. This command adds tiny bits of random distance to each of our observations, making the points spread out enough to tell where values are clustering together. 
+
+For example, here's a scatterplot of the big business thermometer and ideology that uses `geom_point()`: 
+
+```{r, echo = TRUE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_point(color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-.1, 7.5), breaks = seq(0, 7, by = 1)) +
+    labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)") +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2)
+
+```
+
+See how there aren't that many points on the plot, despite there being 4,200 complete observations in our dataset?
+
+Here's the same graph made with `geom_jitter()`:
+
+```{r, echo = TRUE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_jitter(width = .3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-.1, 7.5), breaks = seq(0, 7, by = 1)) +
+    labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)") +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2)
+
+```
+
+Now we can see all of our points! Inside of the `geom_jitter()` command above, the `width` argument tells R the maximum amount that it can "jitter," or move, the points horizontally, and the `height` argument tells R the maximum amount it can jitter the points vertically. They're different numbers because they're in the scale of their respective variables; `width` is on the scale of the variable on the x-axis (which only ranges from 1 to 7), and `height` is on the scale of the variable on the y-axis (which ranges from 0 to 100). The `alpha` argument makes the points transparent, so we can better see when multiple points overlap each other.
+
+Both plots have also had some white space added on the left-hand side (with the `limits` argument inside of the `scale_x_continuous()` command) and a vertical line added at the y-axis (with the `geom_vline()` command). This isn't necessary, but it will make the intercept of our regression line a bit easier to see when we add the regression line to the figure.
+
+The main command to add a regression line to a scatterplot is `geom_abline()`. This command requires two main arguments, `slope` and `intercept`, which we will pull from the model we've estimated. There are two main ways to go about this. The first is to hard-code the numbers into the command, by setting `slope` equal to 4.4 (our $\hat{\beta}$) and `intercept` equal to 29.0 (our $\hat{\alpha}$). 
+
+```{r, echo = TRUE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_jitter(width = .3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-.1, 7.5), breaks = seq(0, 7, by = 1)) +
+  labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)") +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_abline(slope = mod1$coefficients[2], intercept = mod1$coefficients[1],  
+              linewidth = 1.35, color = "steelblue2")
+
+```
+
+That approach *will* work, but in general, it's not ideal to hard-code values like this, because they won't update automatically if our model estimates change. Instead, we should try to produce these values programmatically. To do this, it will help to know how R thinks about model objects.
+
+In some ways, R treats model objects (like `mod1`) the same way it does data frames. For example, let's look at what happens when we use the `names()` command on a model object. 
+
+```{r, echo = TRUE}
+
+mod1 <- lm(business ~ ideology, data = anes)
+
+names(mod1)
+
+```
+
+That produces a set of values that are stored inside of `mod1`. We can reference these values with a `modelname$parameter` syntax very similar to our `dataframe$column` syntax. 
+
+Here's what happens when we use this syntax to reference the coefficient estimates:
+
+
+```{r, echo = TRUE}
+
+mod1$coefficients
+  
+```
+
+
+We can also subset to a specific value within that set of parameters with square brackets and a location number.
+
+```{r, echo = TRUE}
+# This gives me the alpha-hat of this model:
+mod1$coefficients[1]
+
+# This gives me the beta-hat of this model:
+mod1$coefficients[2]
+  
+```
+
+
+Thus, we can plug the code above into our plot code to programmatically produce the values we need, instead of hard-coding them:
+
+
+```{r, echo = TRUE, warning = FALSE, message = FALSE, fig.align = "center"}
+
+ggplot(data = anes, aes(x = ideology, y = business)) +
+  geom_jitter(width = .3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-.1, 7.5), breaks = seq(0, 7, by = 1)) +
+  labs(x = "Ideology (1 = Liberal, 7 = Conservative)",
+       y = "Big Business Thermometer (0-100)") +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_abline(slope = mod1$coefficients[2], intercept = mod1$coefficients[1],  
+              linewidth = 1.35, color = "steelblue2")
+
+```
+
+
+### Practice 
+
+Your turn! How might you go about visualizing the results from `mod2`? Try to code the slope and intercept programmatically, rather than hard-coding them.
+
+
+```{r lineex3, exercise = TRUE, error = F, warning = F, exercise.reveal_solution = TRUE}
+
+mod2 <- lm(business ~ age, data = anes)
+
+
+
+```
+
+
+```{r lineex3-hint, warning = F, echo = F}
+
+# If you're basing your code on the code provided for mod1 above, 
+# don't forget to change your X variable (and everything related to it,
+# which means everything related to the scale for your x-axis).
+# You also need to make sure to update the model referenced by your code. 
+
+```
+
+
+```{r lineex3-solution, warning = F, echo = F, fig.align = "center"}
+
+mod2 <- lm(business ~ age, data = anes)
+
+ggplot(data = anes, aes(x = age, y = business)) +
+  geom_jitter(width = 3, height = 3, alpha = .5, color = "grey80") +
+  theme_bw() + 
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(limits = c(-5, 85), breaks = seq(-5, 85, by = 5)) +
+  labs(x = "Age",
+       y = "Big Business Thermometer (0-100)") +
+  geom_vline(xintercept = 0, color = "grey80", linetype = 2) +
+  geom_abline(slope = mod2$coefficients[2], intercept = mod2$coefficients[1],  
+              linewidth = 1.35, color = "steelblue2")
+
+```
