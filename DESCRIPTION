@@ -8,3 +8,4 @@ Description: This package houses the learnr tutorials for Poli 281 at UNC-Chapel
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
+Imports: modelsummary, gt
