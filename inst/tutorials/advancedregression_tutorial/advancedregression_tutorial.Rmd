@@ -321,7 +321,7 @@ Let's go into more detail about how to interpret these results.
 
 #### The Intercept ($\hat{\alpha}$)
 
-In a bivariate model, the intercept (aka "the constant" or $\hat{\alpha}$) is the predicted value of $Y$ (our dependent variable) when $X$ (our independent variable) equals 0. In a multiple regression model, it's very similar---it's **the predicted value of $Y$ (our dependent variable) when *all* of our independent variables ($X_n$) equal 0. 
+In a bivariate model, the intercept (aka "the constant" or $\hat{\alpha}$) is the predicted value of $Y$ (our dependent variable) when $X$ (our independent variable) equals 0. In a multiple regression model, it's very similar---it's **the predicted value of $Y$ (our dependent variable) when *all* of our independent variables ($X_n$) equal 0.** 
 
 For Model 3, our value of $\hat{\alpha}$ is 23.5. That means we can say that the predicted rating of big business for someone who has both an ideology score and an age of 0 is 23.5.
 
